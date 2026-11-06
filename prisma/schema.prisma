@@ -1,0 +1,210 @@
+// b2solutions CRM – Datenmodell
+// siehe Plan-Dokument, Abschnitt "Datenmodell"
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MITARBEITER
+}
+
+enum LeadStatus {
+  KALT
+  KONTAKTIERT
+  TERMIN
+  ANGEBOT
+  KUNDE
+  VERLOREN
+}
+
+enum DealType {
+  EINMALIG
+  WIEDERKEHREND
+}
+
+enum DealStatus {
+  ENTWURF
+  VERSENDET
+  ANGENOMMEN
+  ABGELEHNT
+}
+
+enum ProjectPhase {
+  KONZEPT
+  DESIGN
+  ENTWICKLUNG
+  REVIEW
+  LAUNCH
+  WARTUNG
+}
+
+enum TaskStatus {
+  OFFEN
+  IN_ARBEIT
+  ERLEDIGT
+}
+
+enum ActivityType {
+  CALL
+  EMAIL
+  MEETING
+  NOTIZ
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(MITARBEITER)
+  createdAt DateTime @default(now())
+
+  assignedTasks Task[]
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  branche   String?
+  website   String?
+  groesse   String?
+  createdAt DateTime @default(now())
+
+  contacts Contact[]
+  projects Project[]
+  leads    Lead[]
+  deals    Deal[]
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  rolle     String?
+  email     String?
+  telefon   String?
+  createdAt DateTime @default(now())
+
+  company   Company? @relation(fields: [companyId], references: [id])
+  companyId String?
+
+  leads      Lead[]
+  activities Activity[]
+}
+
+model Lead {
+  id            String     @id @default(cuid())
+  quelle        String
+  status        LeadStatus @default(KALT)
+  score         Int?
+  wiedervorlage DateTime?
+  notiz         String?
+  createdAt     DateTime   @default(now())
+
+  company   Company? @relation(fields: [companyId], references: [id])
+  companyId String?
+
+  contact   Contact? @relation(fields: [contactId], references: [id])
+  contactId String?
+
+  deal Deal?
+  tasks Task[]
+}
+
+model Deal {
+  id        String     @id @default(cuid())
+  titel     String
+  wert      Float
+  typ       DealType
+  status    DealStatus @default(ENTWURF)
+  createdAt DateTime   @default(now())
+
+  company   Company @relation(fields: [companyId], references: [id])
+  companyId String
+
+  lead   Lead?   @relation(fields: [leadId], references: [id])
+  leadId String? @unique
+
+  project Project?
+}
+
+model Project {
+  id              String       @id @default(cuid())
+  name            String
+  phase           ProjectPhase @default(KONZEPT)
+  startdatum      DateTime?
+  launchDatum     DateTime?
+  domain          String?
+  hostingProvider String?
+  cms             String?
+  createdAt       DateTime     @default(now())
+
+  company   Company @relation(fields: [companyId], references: [id])
+  companyId String
+
+  deal   Deal?   @relation(fields: [dealId], references: [id])
+  dealId String? @unique
+
+  tasks           Task[]
+  files           File[]
+  activities      Activity[]
+  hostingVertrag  HostingVertrag?
+}
+
+model HostingVertrag {
+  id                 String   @id @default(cuid())
+  laufzeitMonate     Int
+  monatlicherBetrag  Float
+  naechsteFaelligkeit DateTime
+  createdAt          DateTime @default(now())
+
+  project   Project @relation(fields: [projectId], references: [id])
+  projectId String  @unique
+}
+
+model Task {
+  id        String     @id @default(cuid())
+  titel     String
+  faellig   DateTime?
+  status    TaskStatus @default(OFFEN)
+  createdAt DateTime   @default(now())
+
+  zustaendig   User?   @relation(fields: [zustaendigId], references: [id])
+  zustaendigId String?
+
+  project   Project? @relation(fields: [projectId], references: [id])
+  projectId String?
+
+  lead   Lead?   @relation(fields: [leadId], references: [id])
+  leadId String?
+}
+
+model Activity {
+  id        String       @id @default(cuid())
+  typ       ActivityType
+  text      String
+  createdAt DateTime     @default(now())
+
+  contact   Contact? @relation(fields: [contactId], references: [id])
+  contactId String?
+
+  project   Project? @relation(fields: [projectId], references: [id])
+  projectId String?
+}
+
+model File {
+  id        String   @id @default(cuid())
+  name      String
+  typ       String?
+  pfad      String
+  createdAt DateTime @default(now())
+
+  project   Project @relation(fields: [projectId], references: [id])
+  projectId String
+}
